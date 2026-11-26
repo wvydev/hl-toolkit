@@ -32,7 +32,14 @@ def parse_fill(user: str, f: dict) -> Fill:
     if side not in ("B", "A"):
         raise ValueError(f"bad side {side!r}")
     return Fill(
-        user=user, coin=str(f["coin"]), px=positive(f["px"]), sz=positive(f["sz"]), side=side,
-        time_ms=whole(f["time"]), start_position=finite(f["startPosition"]), tid=whole(f["tid"]),
-        fee=finite(f["fee"]), raw=dict(f),
+        user=user,
+        coin=str(f["coin"]),
+        px=positive(f["px"]),
+        sz=positive(f["sz"]),
+        side=side,
+        time_ms=whole(f["time"]),
+        start_position=finite(f["startPosition"]),
+        tid=whole(f["tid"]),
+        fee=finite(f["fee"]),
+        raw=dict(f),
     )

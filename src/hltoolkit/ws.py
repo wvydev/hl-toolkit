@@ -64,8 +64,16 @@ class FillsFeed:
     broken connection is logged and reconnected. Error frames from Hyperliquid (a refused subscription)
     are counted in `errors` and kept in `last_error`."""
 
-    def __init__(self, users: Users, url: str = MAINNET_WS_URL, *, clock: Clock | None = None, connect=None,
-                 ping_interval_s: float = PING_INTERVAL_S, read_timeout_s: float = READ_TIMEOUT_S):
+    def __init__(
+        self,
+        users: Users,
+        url: str = MAINNET_WS_URL,
+        *,
+        clock: Clock | None = None,
+        connect=None,
+        ping_interval_s: float = PING_INTERVAL_S,
+        read_timeout_s: float = READ_TIMEOUT_S,
+    ):
         self._url = url
         self._users: dict[str, str] = {}  # name -> address, the ones followed
         self._by_addr: dict[str, str] = {}  # lowercase address -> name
@@ -101,8 +109,11 @@ class FillsFeed:
             self._by_addr.setdefault(addr.lower(), name)
         overflow = names[MAX_WS_USERS:]
         if overflow and overflow != self.overflow:
-            log.warning("the websocket follows at most %d users: %d left out (see FillsFeed.overflow)",
-                        MAX_WS_USERS, len(overflow))
+            log.warning(
+                "the websocket follows at most %d users: %d left out (see FillsFeed.overflow)",
+                MAX_WS_USERS,
+                len(overflow),
+            )
         self.overflow = overflow
 
     def _wanted(self) -> dict[str, str]:

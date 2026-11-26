@@ -1,5 +1,6 @@
 """Numbers from Hyperliquid are untrusted: NaN, infinity, zero or a negative price/size never get
 through; the value is refused as if it were unparseable."""
+
 import json
 
 import pytest
@@ -63,7 +64,12 @@ def test_a_fill_needs_a_known_side():
 
 def test_the_websocket_skips_a_broken_fill_and_keeps_the_good_one():
     feed = FillsFeed({"T1": "0xT1"}, "wss://unused", clock=Clock())
-    msg = {"channel": "userFills", "data": {"user": "0xT1", "fills": [
-        {**FILL, "sz": "NaN", "tid": 1}, {**FILL, "px": "Infinity", "tid": 2}, {**FILL, "tid": 3}]}}
+    msg = {
+        "channel": "userFills",
+        "data": {
+            "user": "0xT1",
+            "fills": [{**FILL, "sz": "NaN", "tid": 1}, {**FILL, "px": "Infinity", "tid": 2}, {**FILL, "tid": 3}],
+        },
+    }
     raw = json.dumps(msg).replace('"Infinity"', "Infinity")  # also a bare JSON literal
     assert [f.tid for f in feed._handle(raw)] == [3]

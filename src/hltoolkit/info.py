@@ -114,9 +114,15 @@ class InfoClient:
     With no `client`, it makes and owns an httpx.AsyncClient: close it with `await info.aclose()` or use
     `async with InfoClient() as info:`. Share one `limiter` between clients that use the same IP."""
 
-    def __init__(self, url: str = MAINNET_INFO_URL, client: httpx.AsyncClient | None = None,
-                 limiter: WeightLimiter | None = None, clock: Clock | None = None,
-                 backoffs: tuple[float, ...] = BACKOFFS, timeout: float | None = None):
+    def __init__(
+        self,
+        url: str = MAINNET_INFO_URL,
+        client: httpx.AsyncClient | None = None,
+        limiter: WeightLimiter | None = None,
+        clock: Clock | None = None,
+        backoffs: tuple[float, ...] = BACKOFFS,
+        timeout: float | None = None,
+    ):
         self._url = url
         self._owns_client = client is None
         self._client = client or httpx.AsyncClient(timeout=10.0)
@@ -255,14 +261,27 @@ class InfoClient:
 
     async def candles(self, coin: str, interval: str, start_ms: int, end_ms: int) -> list[dict]:
         """OHLCV bars, oldest first: {time (bar open, ms), open, high, low, close, volume}."""
-        data = await self._post({"type": "candleSnapshot", "req": {
-            "coin": coin, "interval": interval, "startTime": start_ms, "endTime": end_ms}})
+        data = await self._post(
+            {
+                "type": "candleSnapshot",
+                "req": {"coin": coin, "interval": interval, "startTime": start_ms, "endTime": end_ms},
+            }
+        )
         if not isinstance(data, list):
             raise InfoUnavailable(f"malformed candleSnapshot for {coin}")
         await self._charge_items("candleSnapshot", len(data))
         try:
-            return [{"time": whole(c["t"]), "open": positive(c["o"]), "high": positive(c["h"]), "low": positive(c["l"]),
-                     "close": positive(c["c"]), "volume": finite(c["v"])} for c in data]
+            return [
+                {
+                    "time": whole(c["t"]),
+                    "open": positive(c["o"]),
+                    "high": positive(c["h"]),
+                    "low": positive(c["l"]),
+                    "close": positive(c["c"]),
+                    "volume": finite(c["v"]),
+                }
+                for c in data
+            ]
         except (TypeError, KeyError, ValueError) as e:
             raise InfoUnavailable(f"malformed candle for {coin}: {e!r}") from e
 
@@ -277,8 +296,15 @@ class InfoClient:
         try:
             for t in data:
                 side = {"B": "buy", "A": "sell"}[t["side"]]
-                out.append({"time": whole(t["time"]), "px": positive(t["px"]), "sz": positive(t["sz"]),
-                            "side": side, "tid": t.get("tid")})
+                out.append(
+                    {
+                        "time": whole(t["time"]),
+                        "px": positive(t["px"]),
+                        "sz": positive(t["sz"]),
+                        "side": side,
+                        "tid": t.get("tid"),
+                    }
+                )
         except (TypeError, KeyError, ValueError) as e:
             raise InfoUnavailable(f"malformed trade for {coin}: {e!r}") from e
         return out
@@ -386,15 +412,19 @@ class InfoClient:
     async def user_funding(self, user: str, start_ms: int) -> list[dict]:
         """The user's funding payments from start_ms, raw: [{"delta": {...}, "hash", "time"}], every page."""
         return await self._pages(
-            {"type": "userFunding", "user": user, "startTime": start_ms}, "userFunding",
-            lambda r: (whole(r["time"]), str(r["delta"]["coin"]), str(r.get("hash"))))
+            {"type": "userFunding", "user": user, "startTime": start_ms},
+            "userFunding",
+            lambda r: (whole(r["time"]), str(r["delta"]["coin"]), str(r.get("hash"))),
+        )
 
     async def user_fills_raw(self, user: str, start_ms: int) -> list[dict]:
         """The user's fills from start_ms as raw dicts, oldest first, every page, tids de-duplicated.
         Nothing is parsed or dropped here."""
         return await self._pages(
-            {"type": "userFillsByTime", "user": user, "startTime": start_ms}, "userFillsByTime",
-            lambda r: whole(r["tid"]))
+            {"type": "userFillsByTime", "user": user, "startTime": start_ms},
+            "userFillsByTime",
+            lambda r: whole(r["tid"]),
+        )
 
     async def _leave_free(self, keep_free: float, weight: float) -> None:
         """Wait (in short steps, at most about five minutes) until a request of `weight` would still leave
@@ -405,8 +435,9 @@ class InfoClient:
             await self._clock.sleep(5)
         log.warning("the weight budget stayed busy for 5 minutes: a background read goes ahead anyway")
 
-    async def fills_by_time(self, user: str, start_ms: int, end_ms: int | None = None,
-                            *, label: str | None = None, keep_free: float = 0.0) -> list[Fill]:
+    async def fills_by_time(
+        self, user: str, start_ms: int, end_ms: int | None = None, *, label: str | None = None, keep_free: float = 0.0
+    ) -> list[Fill]:
         """The user's fills from start_ms (to end_ms) as checked Fills, oldest first, paging 2,000 at a time up
         to 50 pages. Each Fill's `user` is `label` (the address by default). With keep_free, each page first
         waits until that much of the per-minute weight would stay free.

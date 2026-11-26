@@ -24,11 +24,23 @@ class FastClock:
         await asyncio.sleep(0)
 
 
-
 def raw(tid, user_coin="ETH"):
-    return {"coin": user_coin, "px": "10.5", "sz": "2", "side": "A", "time": 1700000000000 + tid,
-            "startPosition": "3", "dir": "x", "closedPnl": "0", "hash": "h", "oid": 1, "crossed": True,
-            "fee": "0.02", "tid": tid, "feeToken": "USDC"}
+    return {
+        "coin": user_coin,
+        "px": "10.5",
+        "sz": "2",
+        "side": "A",
+        "time": 1700000000000 + tid,
+        "startPosition": "3",
+        "dir": "x",
+        "closedPnl": "0",
+        "hash": "h",
+        "oid": 1,
+        "crossed": True,
+        "fee": "0.02",
+        "tid": tid,
+        "feeToken": "USDC",
+    }
 
 
 def userfills(user, tid):
@@ -51,15 +63,32 @@ async def test_ws_parses_fills_and_skips_snapshot():
                 subs.append(m["subscription"])
                 if len(subs) == 2:
                     await ws.send(json.dumps({"channel": "subscriptionResponse", "data": m}))
-                    await ws.send(json.dumps({"channel": "userFills", "data": {
-                        "isSnapshot": True, "user": A1.lower(), "fills": [raw(1)]}}))
+                    await ws.send(
+                        json.dumps(
+                            {
+                                "channel": "userFills",
+                                "data": {"isSnapshot": True, "user": A1.lower(), "fills": [raw(1)]},
+                            }
+                        )
+                    )
                     await ws.send(json.dumps({"channel": "pong"}))
-                    await ws.send(json.dumps({"channel": "userFills", "data": {
-                        "user": A1.lower(), "fills": [raw(2), raw(3, "xyz:GOLD")]}}))
-                    await ws.send(json.dumps({"channel": "userFills", "data": {
-                        "isSnapshot": False, "user": "0xunknown", "fills": [raw(4)]}}))
-                    await ws.send(json.dumps({"channel": "userFills", "data": {
-                        "user": A2, "fills": [raw(5)]}}))
+                    await ws.send(
+                        json.dumps(
+                            {
+                                "channel": "userFills",
+                                "data": {"user": A1.lower(), "fills": [raw(2), raw(3, "xyz:GOLD")]},
+                            }
+                        )
+                    )
+                    await ws.send(
+                        json.dumps(
+                            {
+                                "channel": "userFills",
+                                "data": {"isSnapshot": False, "user": "0xunknown", "fills": [raw(4)]},
+                            }
+                        )
+                    )
+                    await ws.send(json.dumps({"channel": "userFills", "data": {"user": A2, "fills": [raw(5)]}}))
 
     server, url = await serve(handler)
     feed = FillsFeed({"T1": A1, "T2": A2}, url, clock=FastClock())
@@ -102,9 +131,11 @@ async def test_ws_reconnects_after_close():
     feed = FillsFeed({"T1": A1}, url, clock=clock)
     assert feed.connected is False
     try:
+
         async def first():
             async for f in feed.fills():
                 return f
+
         f = await asyncio.wait_for(first(), 5)
     finally:
         server.close()
@@ -202,12 +233,14 @@ async def test_ws_connected_since_is_the_current_connection():
     feed = FillsFeed({"T1": A1}, url, clock=clock)
     assert feed.connected_since is None
     try:
+
         async def two():
             async for _ in feed.fills():
                 seen.append((feed.connected, feed.connected_since))
                 clock.t += 50  # time passes; the next connection starts later
                 if len(seen) == 2:
                     return
+
         await asyncio.wait_for(two(), 5)
     finally:
         server.close()
@@ -247,8 +280,7 @@ async def test_ws_watchdog_reconnects_when_no_frame_arrives(caplog):
             closed.append(1)
             return False
 
-    feed = FillsFeed({"T1": A1}, "ws://x", clock=FastClock(), connect=lambda url, **kw: Ctx(),
-                     read_timeout_s=0.05)
+    feed = FillsFeed({"T1": A1}, "ws://x", clock=FastClock(), connect=lambda url, **kw: Ctx(), read_timeout_s=0.05)
     task = asyncio.create_task(feed.fills().__anext__())
     try:
         for _ in range(100):
@@ -429,8 +461,12 @@ def test_an_infinite_whole_number_field_skips_only_that_fill():
     # int(Infinity) raises OverflowError: it must not escape the parser and drop the good fill next to it
     feed = FillsFeed({"T1": "0xT1"}, "wss://unused", clock=FastClock())
     good = {"coin": "BTC", "px": "100", "sz": "1", "side": "B", "time": 1, "startPosition": "0", "tid": 3, "fee": "0"}
-    msg = json.dumps({"channel": "userFills", "data": {"user": "0xT1", "fills": [
-        {**good, "tid": "TID"}, {**good, "time": "TIME"}, good]}})
+    msg = json.dumps(
+        {
+            "channel": "userFills",
+            "data": {"user": "0xT1", "fills": [{**good, "tid": "TID"}, {**good, "time": "TIME"}, good]},
+        }
+    )
     msg = msg.replace('"TID"', "Infinity").replace('"TIME"', "-Infinity")
     assert [f.tid for f in feed._handle(msg)] == [3]
 

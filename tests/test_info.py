@@ -19,11 +19,23 @@ class FakeClock:
         self.t += s
 
 
-
 def raw_fill(tid, time, coin="ETH", side="B", sz="1.0", px="100.5", sp="0.0", fee="0.01"):
-    return {"coin": coin, "px": px, "sz": sz, "side": side, "time": time, "startPosition": sp,
-            "dir": "Open Long", "closedPnl": "0.0", "hash": "0x", "oid": 1, "crossed": True,
-            "fee": fee, "tid": tid, "feeToken": "USDC"}
+    return {
+        "coin": coin,
+        "px": px,
+        "sz": sz,
+        "side": side,
+        "time": time,
+        "startPosition": sp,
+        "dir": "Open Long",
+        "closedPnl": "0.0",
+        "hash": "0x",
+        "oid": 1,
+        "crossed": True,
+        "fee": fee,
+        "tid": tid,
+        "feeToken": "USDC",
+    }
 
 
 def make(handler, per_minute=100000):
@@ -48,8 +60,17 @@ async def test_fills_by_time_paginates():
     assert bodies[0] == {"type": "userFillsByTime", "user": "0xabc", "startTime": 5}
     assert bodies[1]["startTime"] == 1000 + 1999  # from the last page's final millisecond (its tids are skipped)
     f = fills[0]
-    assert (f.user, f.coin, f.px, f.sz, f.side, f.time_ms, f.start_position, f.tid, f.fee) == \
-        ("0xabc", "ETH", 100.5, 1.0, "B", 1000, 0.0, 0, 0.01)
+    assert (f.user, f.coin, f.px, f.sz, f.side, f.time_ms, f.start_position, f.tid, f.fee) == (
+        "0xabc",
+        "ETH",
+        100.5,
+        1.0,
+        "B",
+        1000,
+        0.0,
+        0,
+        0.01,
+    )
 
 
 async def test_fills_by_time_stops_at_50_pages_and_keeps_end():
@@ -141,8 +162,10 @@ async def test_meta_and_ctxs_and_clearinghouse_and_funding():
 
 
 async def test_portfolio_parsed():
-    body = [["day", {"accountValueHistory": [[1, "10.5"], [2, "11"]], "pnlHistory": [[1, "0"], [2, "0.5"]], "vlm": "1"}],
-            ["perpDay", {"accountValueHistory": [], "pnlHistory": [], "vlm": "0"}]]
+    body = [
+        ["day", {"accountValueHistory": [[1, "10.5"], [2, "11"]], "pnlHistory": [[1, "0"], [2, "0.5"]], "vlm": "1"}],
+        ["perpDay", {"accountValueHistory": [], "pnlHistory": [], "vlm": "0"}],
+    ]
     info, _ = make(lambda req: httpx.Response(200, json=body))
     p = await info.portfolio("0xabc")
     assert p["day"] == {"accountValueHistory": [(1, 10.5), (2, 11.0)], "pnlHistory": [(1, 0.0), (2, 0.5)]}
@@ -303,8 +326,9 @@ async def test_candles_request_parse_and_weight():
     info, _ = make(handler)
     charged = spy_weights(info)
     candles = await info.candles("ETH", "15m", 1_000, 2_000)
-    assert bodies == [{"type": "candleSnapshot",
-                       "req": {"coin": "ETH", "interval": "15m", "startTime": 1_000, "endTime": 2_000}}]
+    assert bodies == [
+        {"type": "candleSnapshot", "req": {"coin": "ETH", "interval": "15m", "startTime": 1_000, "endTime": 2_000}}
+    ]
     assert charged == [20, 5]  # base, then 301 // 60 for the items returned
     assert len(candles) == 301
     assert candles[0] == {"time": 1_000_000, "open": 100.0, "high": 102.0, "low": 99.0, "close": 101.0, "volume": 5.5}
@@ -317,7 +341,10 @@ async def test_candles_few_items_no_extra_weight():
     assert charged == [20]
 
 
-@pytest.mark.parametrize("body", ["{}", "null", '[{"t": 1}]', '[{"t": 1, "o": "x", "c": "1", "h": "1", "l": "1", "v": "1"}]'])
+BAD_CANDLES = ["{}", "null", '[{"t": 1}]', '[{"t": 1, "o": "x", "c": "1", "h": "1", "l": "1", "v": "1"}]']
+
+
+@pytest.mark.parametrize("body", BAD_CANDLES)
 async def test_candles_malformed_unavailable(body):
     info, _ = make(lambda req: httpx.Response(200, text=body))
     with pytest.raises(InfoUnavailable):
@@ -326,8 +353,19 @@ async def test_candles_malformed_unavailable(body):
 
 async def test_recent_trades_parse_drop_users_and_weight():
     bodies = []
-    raw = [{"coin": "ETH", "side": "A" if i % 2 else "B", "px": "2052.7", "sz": "0.01", "time": 1_794_364_146_025 - i,
-            "hash": "0x0", "tid": 900 + i, "users": ["0xaaa", "0xbbb"]} for i in range(25)]
+    raw = [
+        {
+            "coin": "ETH",
+            "side": "A" if i % 2 else "B",
+            "px": "2052.7",
+            "sz": "0.01",
+            "time": 1_794_364_146_025 - i,
+            "hash": "0x0",
+            "tid": 900 + i,
+            "users": ["0xaaa", "0xbbb"],
+        }
+        for i in range(25)
+    ]
 
     def handler(req):
         bodies.append(json.loads(req.content))
@@ -358,8 +396,9 @@ async def test_limiter_room_and_public_handle():
     assert lim.room() == 70
     clock.t += 61  # aged out of the window
     assert lim.room() == 100
-    info = InfoClient("http://x/info", httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(200))),
-                      lim, clock)
+    info = InfoClient(
+        "http://x/info", httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(200))), lim, clock
+    )
     assert info.limiter is lim
     await info._client.aclose()
 
@@ -392,8 +431,9 @@ async def test_dex_reads_add_the_dex_to_the_body_and_keep_their_weight():
         if b["type"] == "allMids":
             return httpx.Response(200, json={"xyz:GOLD": "3887.8"})
         if b["type"] == "metaAndAssetCtxs":
-            return httpx.Response(200, json=[{"universe": [{"name": "xyz:GOLD", "deployerFeeScale": "1.0"}]},
-                                             [{"markPx": "3887.8"}]])
+            return httpx.Response(
+                200, json=[{"universe": [{"name": "xyz:GOLD", "deployerFeeScale": "1.0"}]}, [{"markPx": "3887.8"}]]
+            )
         return httpx.Response(200, json={"assetPositions": []})
 
     info, _ = make(handler)
@@ -410,8 +450,12 @@ async def test_dex_reads_add_the_dex_to_the_body_and_keep_their_weight():
     assert uni[0]["name"] == "xyz:GOLD"
     await info.clearinghouse_state("0xabc", dex="xyz")
     await info.all_mids()  # the main dex: no "dex" key at all, as before
-    assert bodies == [{"type": "allMids", "dex": "xyz"}, {"type": "metaAndAssetCtxs", "dex": "xyz"},
-                      {"type": "clearinghouseState", "user": "0xabc", "dex": "xyz"}, {"type": "allMids"}]
+    assert bodies == [
+        {"type": "allMids", "dex": "xyz"},
+        {"type": "metaAndAssetCtxs", "dex": "xyz"},
+        {"type": "clearinghouseState", "user": "0xabc", "dex": "xyz"},
+        {"type": "allMids"},
+    ]
     assert charged == [2, 20, 2, 2]
 
 
@@ -427,8 +471,11 @@ async def test_keep_free_waits_for_room_before_each_page():
 
 async def test_prediction_market_settlements_are_skipped_not_fatal():
     # HIP-4 outcome coins ("#N") settle at a price of 0: left out, and never a reason to drop the page
-    page = [raw_fill(1, 1000, coin="BTC"), raw_fill(2, 1001, coin="#165420", px="0.0", side="A", sp="70.0"),
-            raw_fill(3, 1002, coin="ETH")]
+    page = [
+        raw_fill(1, 1000, coin="BTC"),
+        raw_fill(2, 1001, coin="#165420", px="0.0", side="A", sp="70.0"),
+        raw_fill(3, 1002, coin="ETH"),
+    ]
     info, _ = make(lambda r: httpx.Response(200, json=page))
     fills = await info.fills_by_time("0xabc", 0)
     assert [f.coin for f in fills] == ["BTC", "ETH"]
@@ -477,8 +524,14 @@ async def test_malformed_perp_dexs_and_meta_are_unavailable():
 
 async def test_account_readers_send_the_right_bodies_and_weights():
     bodies = []
-    answers = {"spotClearinghouseState": {"balances": []}, "orderStatus": {"status": "unknownOid"},
-               "frontendOpenOrders": [], "userAbstraction": "disabled", "userFunding": [], "userRole": {"role": "missing"}}
+    answers = {
+        "spotClearinghouseState": {"balances": []},
+        "orderStatus": {"status": "unknownOid"},
+        "frontendOpenOrders": [],
+        "userAbstraction": "disabled",
+        "userFunding": [],
+        "userRole": {"role": "missing"},
+    }
 
     def handler(req):
         b = json.loads(req.content)
@@ -561,8 +614,18 @@ async def test_user_fills_raw_refuses_a_fill_without_tid():
 
 
 def raw_funding(t, coin="BTC"):
-    return {"delta": {"type": "funding", "coin": coin, "usdc": "-0.1", "szi": "1", "fundingRate": "0.0001",
-                      "nSamples": None}, "hash": "0x0", "time": t}
+    return {
+        "delta": {
+            "type": "funding",
+            "coin": coin,
+            "usdc": "-0.1",
+            "szi": "1",
+            "fundingRate": "0.0001",
+            "nSamples": None,
+        },
+        "hash": "0x0",
+        "time": t,
+    }
 
 
 async def test_user_funding_pages_past_a_500_row_cap_and_drops_the_boundary_duplicate():
@@ -584,7 +647,7 @@ async def test_a_499_row_page_is_final_and_a_500_row_page_asks_for_the_next():
     for n, calls in ((499, 1), (500, 2)):
         bodies = []
 
-        def handler(req, n=n):
+        def handler(req, n=n, bodies=bodies):
             bodies.append(1)
             return httpx.Response(200, json=[raw_funding(1000 + i) for i in range(n)])
 
